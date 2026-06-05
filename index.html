@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+
+body{
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", Arial;
+  background:#f5f5f7;
+  padding:14px;
+}
+
+/* Cards */
+.card{
+  background:white;
+  padding:16px;
+  margin-top:14px;
+  border-radius:16px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Title */
+.title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:22px;
+  font-weight:600;
+}
+
+/* Chinese chess icon */
+.icon{
+  font-size:28px;
+  color:#ff3b30;
+}
+
+/* Inputs */
+input,select{
+  width:100%;
+  padding:12px;
+  margin-top:8px;
+  border-radius:12px;
+  border:1px solid #e5e5ea;
+  background:#fafafa;
+  font-size:16px;
+  outline:none;
+}
+
+input:focus, select:focus{
+  border-color:#007aff;
+  background:white;
+}
+
+/* Buttons */
+button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border:none;
+  border-radius:12px;
+  font-size:16px;
+  font-weight:500;
+}
+
+.primary{background:#007aff;color:white;}
+.red{background:#ff3b30;color:white;}
+.yellow{background:#ffcc00;color:black;}
+
+/* Table */
+table{
+  width:100%;
+  margin-top:12px;
+  border-collapse:separate;
+  border-spacing:0;
+  border-radius:12px;
+  overflow:hidden;
+}
+
+td,th{
+  padding:10px;
+  font-size:14px;
+  text-align:center;
+}
+
+th{
+  background:#f2f2f7;
+  font-weight:600;
+}
+
+td{
+  border-top:1px solid #eee;
+}
+
+/* Colors */
+.green{color:#34c759;font-weight:600;}
+.orange{color:#ff9500;font-weight:600;}
+.redText{color:#ff3b30;font-weight:600;}
+
+.selected{background:#e6f0ff;}
+
+</style>
+
+<script>
+
+let records = JSON.parse(localStorage.getItem("records")) || [];
+let finalResults = JSON.parse(localStorage.getItem("finalResults")) || {};
+let selectedIndex=-1;
+let selectedFinalKey=null;
+let lastSavedGameNumber = null;
+
+function saveLocal(){
+  localStorage.setItem("records", JSON.stringify(records));
+  localStorage.setItem("finalResults", JSON.stringify(finalResults));
+}
+
+function newGame(){
+  competitionName.value="";
+  competitionDate.value="";
+  totalPlayers.value="";
+  opponent.value="";
+  gameNumber.value=1;
+  resultSelect.value="win";
+  prediction.innerText="";
+  analysisName.value="";
+  analysisResult.innerHTML="";
+  updateFinalResult();
+}
+
+function saveGame(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+  let game=Number(gameNumber.value);
+  let opp=opponent.value.trim();
+
+  if(!comp||!date||!game||!opp){
+    alert("Fill all fields");
+    return;
+  }
+
+  if(lastSavedGameNumber !== null && game === lastSavedGameNumber){
+    if(!confirm("Game number same as previous. Continue?")) return;
+  }
+
+  let dup=records.find(r =>
+    r.competition===comp &&
+    r.game===game &&
+    r.opponent===opp
+  );
+
+  if(dup){
+    alert("Duplicate");
+    return;
+  }
+
+  records.push({
+    competition:comp,
+    date,
+    game,
+    opponent:opp,
+    result:resultSelect.value,
+    totalPlayers:Number(totalPlayers.value)||0
+  });
+
+  lastSavedGameNumber = game;
+
+  saveLocal();
+  update();
+}
+
+function editRecord(i){
+  let r=records[i];
+  let comp=prompt("Competition",r.competition); if(!comp)return;
+  let date=prompt("Date",r.date); if(!date)return;
+  let game=prompt("Game",r.game); if(!game)return;
+  let opp=prompt("Opponent",r.opponent); if(!opp)return;
+  let res=prompt("Result",r.result); if(!res)return;
+  let players=prompt("Players",r.totalPlayers); if(!players)return;
+
+  records[i]={competition:comp,date,game:Number(game),opponent:opp,result:res,totalPlayers:Number(players)||0};
+  saveLocal();
+  update();
+}
+
+function deleteSelected(){
+  if(selectedIndex<0){alert("Select row");return;}
+  records.splice(selectedIndex,1);
+  selectedIndex=-1;
+  saveLocal();
+  update();
+}
+
+function selectRow(i){
+  selectedIndex=i;
+  update();
+}
+
+function selectFinal(key){
+  selectedFinalKey=key;
+  update();
+}
+
+function deleteFinalSelected(){
+  if(!selectedFinalKey){
+    alert("Select final row");
+    return;
+  }
+  delete finalResults[selectedFinalKey];
+  selectedFinalKey=null;
+  saveLocal();
+  update();
+}
+
+function saveFinal(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+
+  let list=records.filter(r=>r.competition===comp && r.date===date);
+
+  let pts=0;
+  list.forEach(r=>{
+    if(r.result==="win") pts++;
+    if(r.result==="draw") pts+=0.5;
+  });
+
+  let rank=document.getElementById("rank").value;
+  let players=document.getElementById("players").value;
+
+  finalResults[comp+"_"+date]={
+    competition:comp,
+    date,
+    points:pts,
+    rank,
+    players
+  };
+
+  saveLocal();
+  update();
+}
+
+function updateSummary(){
+
+  let total=records.length;
+  let win=records.filter(r=>r.result==="win").length;
+  let draw=records.filter(r=>r.result==="draw").length;
+  let lose=records.filter(r=>r.result==="lose").length;
+
+  summary.innerText=
+`Total: ${total}
+Win: ${win}
+Draw: ${draw}
+Lose: ${lose}`;
+}
+
+function predict(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+
+  let list=records.filter(r=>r.competition===comp && r.date===date);
+
+  let win=list.filter(r=>r.result==="win").length;
+  let draw=list.filter(r=>r.result==="draw").length;
+  let total=list.length;
+
+  let rate= total ? (win+draw*0.5)/total : 0;
+  let players=Number(totalPlayers.value)||30;
+
+  let base=(1-rate)*players;
+
+  prediction.innerText=`Estimated Rank: ${Math.round(base*0.85)} - ${Math.round(base*1.15)}`;
+}
+
+function analysis(){
+
+  let name=analysisName.value;
+  let list=records.filter(r=>r.opponent===name);
+
+  if(!list.length){analysisResult.innerHTML="";return;}
+
+  let total=list.length;
+  let win=list.filter(r=>r.result==="win").length;
+  let draw=list.filter(r=>r.result==="draw").length;
+  let lose=list.filter(r=>r.result==="lose").length;
+
+  analysisResult.innerHTML=
+`Name: ${name}<br>
+Games: ${total}<br>
+Win: ${win}<br>
+Draw: ${draw}<br>
+Lose: ${lose}`;
+}
+
+function updateFinalResult(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+
+  let list=records.filter(r=>r.competition===comp && r.date===date);
+
+  let pts=0;
+  list.forEach(r=>{
+    if(r.result==="win") pts++;
+    if(r.result==="draw") pts+=0.5;
+  });
+
+  finalResult.innerHTML=`
+<b>Competition:</b> ${comp}<br>
+<b>Date:</b> ${date}<br>
+<b>Points:</b> ${pts}<br><br>
+
+Rank:<input id="rank">
+Players:<input id="players">
+
+<button class="primary" onclick="saveFinal()">Save Final Result</button>
+`;
+}
+
+function update(){
+
+  updateSummary();
+  predict();
+  updateFinalResult();
+
+  let html="";
+  records.forEach((r,i)=>{
+
+    let color =
+      r.result==="win"?"green":
+      r.result==="draw"?"orange":"redText";
+
+    let resultText = r.result.charAt(0).toUpperCase()+r.result.slice(1);
+
+    html+=`
+<tr onclick="selectRow(${i})">
+<td>${r.competition}</td>
+<td>${r.date}</td>
+<td>${r.game}</td>
+<td>${r.opponent}</td>
+<td class="${color}">${resultText}</td>
+<td>${r.totalPlayers}</td>
+<td><button onclick="event.stopPropagation();editRecord(${i})">Edit</button></td>
+</tr>`;
+  });
+
+  gameTable.innerHTML=html;
+}
+
+window.onload=()=>{
+  for(let i=1;i<=15;i++){
+    gameNumber.innerHTML+=`<option>${i}</option>`;
+  }
+  update();
+};
+
+</script>
+
+</head>
+
+<body>
+
+<div class="title">
+  <div class="icon">帅</div>
+  <div>Chess Tracker</div>
+</div>
+
+<div class="card">
+<h3>Summary</h3>
+<div id="summary"></div>
+</div>
+
+<div class="card">
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+  <input id="competitionName" placeholder="Competition">
+  <input id="competitionDate" type="date">
+</div>
+
+<input id="totalPlayers" placeholder="Players">
+
+<select id="gameNumber"></select>
+<input id="opponent" placeholder="Opponent">
+
+<select id="resultSelect">
+<option value="win">Win</option>
+<option value="draw">Draw</option>
+<option value="lose">Lose</option>
+</select>
+
+<button class="primary" onclick="saveGame()">Save Result</button>
+<button class="red" onclick="newGame()">New Game</button>
+
+</div>
+
+<div class="card">
+<h3>Prediction</h3>
+<p id="prediction"></p>
+</div>
+
+<div class="card">
+<h3>Opponent Analysis</h3>
+<input id="analysisName" oninput="analysis()" placeholder="Name">
+<button class="yellow" onclick="clearAnalysis()">Clear</button>
+<p id="analysisResult"></p>
+</div>
+
+<div class="card">
+<h3>Final Result</h3>
+<div id="finalResult"></div>
+</div>
+
+<div class="card">
+<h3>Game Record</h3>
+<button class="red" onclick="deleteSelected()">Delete Selected</button>
+
+<table>
+<thead>
+<tr>
+<th>Competition</th>
+<th>Date</th>
+<th>Game #</th>
+<th>Opponent</th>
+<th>Result</th>
+<th>Total Player</th>
+<th>Edit</th>
+</tr>
+</thead>
+<tbody id="gameTable"></tbody>
+</table>
+
+</div>
+
+</body>
+</html>
