@@ -1,106 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+body{font-family:Arial;background:#f2f2f2;padding:10px;}
+.card{background:white;padding:12px;margin-top:12px;border-radius:12px;}
 
-body{
-  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", Arial;
-  background:#f5f5f7;
-  padding:14px;
+button{width:100%;padding:10px;margin-top:5px;border:none;border-radius:10px;cursor:pointer;}
+.primary{background:#2563eb;color:white;}
+.red{background:#dc2626;color:white;}
+.yellow{background:#facc15;color:black;}
+
+.green{color:#16a34a;font-weight:bold;}
+.orange{color:#f59e0b;font-weight:bold;}
+.redText{color:#dc2626;font-weight:bold;}
+
+table{width:100%;margin-top:10px;border-collapse:collapse;}
+td,th{border:1px solid #ccc;padding:6px;text-align:center;}
+.selected{background:#dbeafe;}
+
+input,select{
+  width:100%;
+  padding:8px;
+  margin-top:5px;
+  border-radius:8px;
+  border:1px solid #ccc;
 }
 
-/* Cards */
-.card{
-  background:white;
-  padding:16px;
-  margin-top:14px;
-  border-radius:16px;
-  box-shadow:0 4px 10px rgba(0,0,0,0.05);
-}
-
-/* Title */
 .title{
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
   font-size:22px;
-  font-weight:600;
+  font-weight:bold;
 }
 
-/* Chinese chess icon */
 .icon{
   font-size:28px;
-  color:#ff3b30;
+  color:#dc2626;
 }
-
-/* Inputs */
-input,select{
-  width:100%;
-  padding:12px;
-  margin-top:8px;
-  border-radius:12px;
-  border:1px solid #e5e5ea;
-  background:#fafafa;
-  font-size:16px;
-  outline:none;
-}
-
-input:focus, select:focus{
-  border-color:#007aff;
-  background:white;
-}
-
-/* Buttons */
-button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  border:none;
-  border-radius:12px;
-  font-size:16px;
-  font-weight:500;
-}
-
-.primary{background:#007aff;color:white;}
-.red{background:#ff3b30;color:white;}
-.yellow{background:#ffcc00;color:black;}
-
-/* Table */
-table{
-  width:100%;
-  margin-top:12px;
-  border-collapse:separate;
-  border-spacing:0;
-  border-radius:12px;
-  overflow:hidden;
-}
-
-td,th{
-  padding:10px;
-  font-size:14px;
-  text-align:center;
-}
-
-th{
-  background:#f2f2f7;
-  font-weight:600;
-}
-
-td{
-  border-top:1px solid #eee;
-}
-
-/* Colors */
-.green{color:#34c759;font-weight:600;}
-.orange{color:#ff9500;font-weight:600;}
-.redText{color:#ff3b30;font-weight:600;}
-
-.selected{background:#e6f0ff;}
-
 </style>
 
 <script>
@@ -109,6 +48,8 @@ let records = JSON.parse(localStorage.getItem("records")) || [];
 let finalResults = JSON.parse(localStorage.getItem("finalResults")) || {};
 let selectedIndex=-1;
 let selectedFinalKey=null;
+
+// ✅ NEW: track last saved game number
 let lastSavedGameNumber = null;
 
 function saveLocal(){
@@ -123,9 +64,11 @@ function newGame(){
   opponent.value="";
   gameNumber.value=1;
   resultSelect.value="win";
+
   prediction.innerText="";
   analysisName.value="";
   analysisResult.innerHTML="";
+
   updateFinalResult();
 }
 
@@ -141,8 +84,10 @@ function saveGame(){
     return;
   }
 
+  // ✅ NEW: warning if game number not changed
   if(lastSavedGameNumber !== null && game === lastSavedGameNumber){
-    if(!confirm("Game number same as previous. Continue?")) return;
+    let confirmSave = confirm("⚠️ Game number is same as previous ("+game+").\nYou might have forgotten to change it.\n\nPress OK to continue or Cancel to change it.");
+    if(!confirmSave) return;
   }
 
   let dup=records.find(r =>
@@ -152,7 +97,7 @@ function saveGame(){
   );
 
   if(dup){
-    alert("Duplicate");
+    alert("Duplicate ❌");
     return;
   }
 
@@ -165,6 +110,7 @@ function saveGame(){
     totalPlayers:Number(totalPlayers.value)||0
   });
 
+  // ✅ store last saved
   lastSavedGameNumber = game;
 
   saveLocal();
@@ -172,7 +118,9 @@ function saveGame(){
 }
 
 function editRecord(i){
+
   let r=records[i];
+
   let comp=prompt("Competition",r.competition); if(!comp)return;
   let date=prompt("Date",r.date); if(!date)return;
   let game=prompt("Game",r.game); if(!game)return;
@@ -181,6 +129,7 @@ function editRecord(i){
   let players=prompt("Players",r.totalPlayers); if(!players)return;
 
   records[i]={competition:comp,date,game:Number(game),opponent:opp,result:res,totalPlayers:Number(players)||0};
+
   saveLocal();
   update();
 }
@@ -214,10 +163,39 @@ function deleteFinalSelected(){
   update();
 }
 
+function editFinal(key){
+
+  let r=finalResults[key];
+
+  let comp=prompt("Competition",r.competition); if(!comp)return;
+  let date=prompt("Date",r.date); if(!date)return;
+  let pts=prompt("Points",r.points); if(!pts)return;
+  let rank=prompt("Rank",r.rank); if(!rank)return;
+  let players=prompt("Players",r.players); if(!players)return;
+
+  delete finalResults[key];
+
+  finalResults[comp+"_"+date]={
+    competition:comp,
+    date,
+    points:Number(pts),
+    rank,
+    players
+  };
+
+  saveLocal();
+  update();
+}
+
 function saveFinal(){
 
   let comp=competitionName.value.trim();
   let date=competitionDate.value;
+
+  if(!comp||!date){
+    alert("Enter competition & date");
+    return;
+  }
 
   let list=records.filter(r=>r.competition===comp && r.date===date);
 
@@ -229,6 +207,11 @@ function saveFinal(){
 
   let rank=document.getElementById("rank").value;
   let players=document.getElementById("players").value;
+
+  if(!rank||!players){
+    alert("Fill rank & players");
+    return;
+  }
 
   finalResults[comp+"_"+date]={
     competition:comp,
@@ -251,48 +234,78 @@ function updateSummary(){
 
   summary.innerText=
 `Total: ${total}
-Win: ${win}
-Draw: ${draw}
-Lose: ${lose}`;
+Win: ${win} (${((win/total||0)*100).toFixed(1)}%)
+Draw: ${draw} (${((draw/total||0)*100).toFixed(1)}%)
+Lose: ${lose} (${((lose/total||0)*100).toFixed(1)}%)`;
 }
 
 function predict(){
 
-  let comp=competitionName.value.trim();
-  let date=competitionDate.value;
+  if(records.length===0){
+    prediction.innerText="";
+    return;
+  }
 
-  let list=records.filter(r=>r.competition===comp && r.date===date);
+  let totalAll = records.length;
+  let winAll = records.filter(r=>r.result==="win").length;
+  let drawAll = records.filter(r=>r.result==="draw").length;
 
-  let win=list.filter(r=>r.result==="win").length;
-  let draw=list.filter(r=>r.result==="draw").length;
-  let total=list.length;
+  let wrAll = (winAll + drawAll*0.5) / totalAll;
 
-  let rate= total ? (win+draw*0.5)/total : 0;
-  let players=Number(totalPlayers.value)||30;
+  let comp = competitionName.value.trim();
+  let date = competitionDate.value;
 
-  let base=(1-rate)*players;
+  let list = records.filter(r =>
+    r.competition===comp && r.date===date
+  );
 
-  prediction.innerText=`Estimated Rank: ${Math.round(base*0.85)} - ${Math.round(base*1.15)}`;
+  let totalComp = list.length;
+  let winComp = list.filter(r=>r.result==="win").length;
+  let drawComp = list.filter(r=>r.result==="draw").length;
+
+  let wrComp = totalComp
+    ? (winComp + drawComp*0.5) / totalComp
+    : 0;
+
+  let players = Number(totalPlayers.value) || 30;
+
+  let base = (1 - wrComp) * players;
+
+  let low = Math.max(1, Math.round(base*0.85));
+  let high = Math.max(1, Math.round(base*1.15));
+
+  prediction.innerText =
+`Win% Overall: ${(wrAll*100).toFixed(1)}%
+Win% This Competition: ${(wrComp*100).toFixed(1)}%
+Rank Estimate: ${low} - ${high}`;
 }
 
 function analysis(){
 
-  let name=analysisName.value;
-  let list=records.filter(r=>r.opponent===name);
+  let name = analysisName.value;
+  let list = records.filter(r=>r.opponent===name);
 
-  if(!list.length){analysisResult.innerHTML="";return;}
+  if(!list.length){
+    analysisResult.innerHTML="";
+    return;
+  }
 
-  let total=list.length;
-  let win=list.filter(r=>r.result==="win").length;
-  let draw=list.filter(r=>r.result==="draw").length;
-  let lose=list.filter(r=>r.result==="lose").length;
+  let total = list.length;
+  let win = list.filter(r=>r.result==="win").length;
+  let draw = list.filter(r=>r.result==="draw").length;
+  let lose = list.filter(r=>r.result==="lose").length;
 
-  analysisResult.innerHTML=
-`Name: ${name}<br>
-Games: ${total}<br>
-Win: ${win}<br>
-Draw: ${draw}<br>
-Lose: ${lose}`;
+  analysisResult.innerHTML =
+`<b>Name: ${name}</b><br><br>
+Game Play: ${total}<br>
+<span class="green">Win: ${win} | ${(win/total*100).toFixed(1)}%</span><br>
+<span class="orange">Draw: ${draw} | ${(draw/total*100).toFixed(1)}%</span><br>
+<span class="redText">Lose: ${lose} | ${(lose/total*100).toFixed(1)}%</span>`;
+}
+
+function clearAnalysis(){
+  analysisName.value="";
+  analysisResult.innerHTML="";
 }
 
 function updateFinalResult(){
@@ -300,7 +313,11 @@ function updateFinalResult(){
   let comp=competitionName.value.trim();
   let date=competitionDate.value;
 
-  let list=records.filter(r=>r.competition===comp && r.date===date);
+  let html="";
+
+  let list = records.filter(r =>
+    r.competition===comp && r.date===date
+  );
 
   let pts=0;
   list.forEach(r=>{
@@ -308,20 +325,57 @@ function updateFinalResult(){
     if(r.result==="draw") pts+=0.5;
   });
 
-  finalResult.innerHTML=`
-<b>Competition:</b> ${comp}<br>
-<b>Date:</b> ${date}<br>
-<b>Points:</b> ${pts}<br><br>
+  html+=`
+<h4>Add / Update Final Result</h4>
+Competition: ${comp || ""}<br>
+Date: ${date || ""}<br>
+Points: ${comp && date ? pts : ""}<br><br>
 
-Rank:<input id="rank">
-Players:<input id="players">
+Rank:<input id="rank"><br>
+Players:<input id="players"><br>
 
 <button class="primary" onclick="saveFinal()">Save Final Result</button>
 `;
+
+  let keys=Object.keys(finalResults);
+
+  if(keys.length){
+
+    html+=`
+<h4>Final Results</h4>
+<button class="red" onclick="deleteFinalSelected()">Delete Selected</button>
+
+<table>
+<tr>
+<th>Competition</th>
+<th>Date</th>
+<th>Points</th>
+<th>Rank</th>
+<th>Players</th>
+<th>Edit</th>
+</tr>`;
+
+    keys.forEach(k=>{
+      let r=finalResults[k];
+
+      html+=`
+<tr onclick="selectFinal('${k}')" class="${selectedFinalKey===k?'selected':''}">
+<td>${r.competition}</td>
+<td>${r.date}</td>
+<td>${r.points}</td>
+<td>${r.rank}</td>
+<td>${r.players}</td>
+<td><button onclick="event.stopPropagation();editFinal('${k}')">Edit</button></td>
+</tr>`;
+    });
+
+    html+="</table>";
+  }
+
+  finalResult.innerHTML=html;
 }
 
 function update(){
-
   updateSummary();
   predict();
   updateFinalResult();
@@ -333,15 +387,13 @@ function update(){
       r.result==="win"?"green":
       r.result==="draw"?"orange":"redText";
 
-    let resultText = r.result.charAt(0).toUpperCase()+r.result.slice(1);
-
     html+=`
-<tr onclick="selectRow(${i})">
+<tr onclick="selectRow(${i})" class="${selectedIndex===i?'selected':''}">
 <td>${r.competition}</td>
 <td>${r.date}</td>
 <td>${r.game}</td>
 <td>${r.opponent}</td>
-<td class="${color}">${resultText}</td>
+<td class="${color}">${r.result}</td>
 <td>${r.totalPlayers}</td>
 <td><button onclick="event.stopPropagation();editRecord(${i})">Edit</button></td>
 </tr>`;
@@ -364,7 +416,7 @@ window.onload=()=>{
 <body>
 
 <div class="title">
-  <div class="icon">帅</div>
+ 
   <div>Chess Tracker</div>
 </div>
 
@@ -374,12 +426,8 @@ window.onload=()=>{
 </div>
 
 <div class="card">
-
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-  <input id="competitionName" placeholder="Competition">
-  <input id="competitionDate" type="date">
-</div>
-
+<input id="competitionName" placeholder="Competition">
+<input id="competitionDate" type="date">
 <input id="totalPlayers" placeholder="Players">
 
 <select id="gameNumber"></select>
@@ -393,7 +441,6 @@ window.onload=()=>{
 
 <button class="primary" onclick="saveGame()">Save Result</button>
 <button class="red" onclick="newGame()">New Game</button>
-
 </div>
 
 <div class="card">
@@ -420,13 +467,7 @@ window.onload=()=>{
 <table>
 <thead>
 <tr>
-<th>Competition</th>
-<th>Date</th>
-<th>Game #</th>
-<th>Opponent</th>
-<th>Result</th>
-<th>Total Player</th>
-<th>Edit</th>
+<th>Competition</th><th>Date</th><th>Game</th><th>Opponent</th><th>Result</th><th>Players</th><th>Edit</th>
 </tr>
 </thead>
 <tbody id="gameTable"></tbody>
@@ -436,4 +477,3 @@ window.onload=()=>{
 
 </body>
 </html>
-
